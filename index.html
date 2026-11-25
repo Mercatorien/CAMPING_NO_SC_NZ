@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>NZ en van non self-contained : où dormir</title>
+<meta name="description" content="Carte interactive des endroits où dormir en Nouvelle-Zélande avec un van non certifié self-contained : règles par district, sites gratuits, campings DOC et municipaux.">
+<link rel="stylesheet" href="leaflet.css?v=6">
+<link rel="stylesheet" href="style.css?v=6">
+</head>
+<body>
+<div id="app">
+  <aside id="side" aria-label="Filtres et informations">
+    <div class="grip" aria-hidden="true"></div>
+    <header>
+      <h1>Dormir en van <span>non self-contained</span> en Nouvelle-Zélande</h1>
+      <button id="toggle" aria-label="Fermer le panneau">Fermer</button>
+    </header>
+    <div id="sidebody">
+
+      <section id="near" hidden aria-live="polite"></section>
+
+      <section class="card">
+        <h2 class="ch">Prix</h2>
+        <p class="small muted">La couleur du symbole indique le prix.</p>
+        <div class="chips" id="prices" role="group" aria-label="Filtrer par prix"></div>
+      </section>
+
+      <section class="card">
+        <h2 class="ch">Type de lieu</h2>
+        <p class="small muted">La forme du symbole indique le type de lieu.</p>
+        <div id="kinds"></div>
+        <label class="chk sub"><input type="checkbox" id="carOnly" checked autocomplete="off"> Campings DOC accessibles en voiture seulement</label>
+        <p class="status" id="count"></p>
+      </section>
+
+      <section class="card">
+        <h2 class="ch">Règles des districts</h2>
+        <label class="chk"><input type="checkbox" id="showDist" checked autocomplete="off"> Afficher les zones</label>
+        <div class="legrow"><span class="sw" style="background:#9a9a9a"></span><span>Aucun site non-SC sur le terrain du conseil</span></div>
+        <div class="legrow"><span class="sw" style="background:#e3b23c"></span><span>Quelques sites non-SC désignés par le conseil</span></div>
+        <p class="small muted">Touchez un district pour lire sa règle.</p>
+      </section>
+
+      <section id="info" aria-live="polite"><p class="hint">Cliquez sur un district ou un point.</p></section>
+
+      <details>
+        <summary>Prix des campings du DOC</summary>
+        <ul class="small">
+          <li><b>Basic</b> : gratuit.</li>
+          <li><b>Standard</b> : 10 à 20 $ par adulte et par nuit.</li>
+          <li><b>Serviced</b> : environ 25 $ par adulte (non électrifié).</li>
+          <li><b>Great Walk / Backcountry</b> : variable, voir la page du site.</li>
+        </ul>
+        <p class="small">Tarifs saisonniers possibles (été, week-ends). Le Campsite Pass couvre la plupart des campings.</p>
+      </details>
+      <details>
+        <summary>À savoir avant d’y aller</summary>
+        <ul class="small">
+          <li>Le panneau sur place prime toujours sur la carte.</li>
+          <li>Les sites non-SC ont souvent 2 à 6 places et 1 à 3 nuits max.</li>
+          <li>Certains sites ferment l’été (côte de Tutukaka) ou l’hiver (Selwyn).</li>
+          <li>Terres de conservation (DOC) : freedom camping permis même non-SC, sauf panneaux, mais interdit dans les réserves du DOC.</li>
+          <li>Positions des sites non-SC approximatives : vérifier avec le lien Google Maps.</li>
+        </ul>
+      </details>
+      <details>
+        <summary>Sources</summary>
+        <ul class="small" id="src"></ul>
+      </details>
+      <p class="small muted">Données réunies le 25 novembre 2026 à partir des sites des conseils, du DOC et de LINZ. Campings du DOC : données ouvertes du DOC (CC BY 4.0), chargées en direct. Campings municipaux : OpenStreetMap (ODbL), chargés en direct.</p>
+    </div>
+  </aside>
+  <main id="map" aria-label="Carte de Nouvelle-Zélande"></main>
+  <div id="searchbox">
+    <label class="vh" for="q">Rechercher un site</label>
+    <input id="q" type="search" placeholder="Rechercher un site, un camping…" autocomplete="off" enterkeyhint="search">
+    <ul id="results" hidden></ul>
+  </div>
+  <div id="fabs">
+    <button id="locate" class="fab" aria-label="Me localiser et voir les sites proches" title="Me localiser">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke="currentColor" stroke-width="2"/></svg>
+    </button>
+    <button id="openSheet" class="fab fab-wide" aria-controls="side" aria-expanded="false">Filtres et infos</button>
+  </div>
+</div>
+<script src="leaflet.js?v=6"></script>
+<script src="ta.js?v=6"></script>
+<script src="data.js?v=6"></script>
+<script src="app.js?v=6"></script>
+</body>
+</html>
