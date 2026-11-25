@@ -50,7 +50,7 @@ BASES['Satellite + noms'] = L.layerGroup([
   L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', { maxZoom: 19 })
 ]);
 (LOCAL ? BASES['Plan Esri'] : BASES['Plan OpenStreetMap']).addTo(map);
-L.control.layers(BASES, null, { position: 'topright', collapsed: isMobile() }).addTo(map);
+L.control.layers(BASES, null, { position: isMobile() ? 'bottomleft' : 'topright', collapsed: isMobile() }).addTo(map);
 
 const distGroup = L.layerGroup().addTo(map);
 const pointGroup = L.layerGroup().addTo(map);
@@ -69,12 +69,10 @@ const kindsBox = document.getElementById('kinds');
 kindsBox.innerHTML = Object.entries(KIND).map(([k, v]) =>
   `<label class="chk"><input type="checkbox" autocomplete="off" data-kind="${k}" ${v.on ? 'checked' : ''}><span class="shape">${svgShape(v.shape, k === 'ban' ? '#15181c' : '#6b7178', 18)}</span><span>${v.label}</span></label>`).join('');
 kindsBox.addEventListener('change', e => { const k = e.target.dataset.kind; if (k) { KIND[k].on = e.target.checked; refresh(); } });
-const carOnly = document.getElementById('carOnly');
-carOnly.addEventListener('change', refresh);
 document.getElementById('showDist').addEventListener('change', e => e.target.checked ? distGroup.addTo(map) : map.removeLayer(distGroup));
 window.addEventListener('pageshow', () => { // certains navigateurs restaurent d'anciens états de cases
   for (const cb of kindsBox.querySelectorAll('input')) cb.checked = KIND[cb.dataset.kind].on;
-  carOnly.checked = true; document.getElementById('showDist').checked = true; distGroup.addTo(map);
+  document.getElementById('showDist').checked = true; document.getElementById('showPcl').checked = true; distGroup.addTo(map);
 });
 
 // ---------- registre des points ----------
@@ -84,7 +82,7 @@ function addItem(o) {
   ITEMS.push(o);
   return o;
 }
-const visible = o => KIND[o.kind].on && (o.kind === 'ban' || PRICE[o.price].on) && !(o.kind === 'doc' && carOnly.checked && !o.car);
+const visible = o => KIND[o.kind].on && (o.kind === 'ban' || PRICE[o.price].on);
 let refreshTimer = null;
 function refresh() {
   clearTimeout(refreshTimer);
@@ -184,7 +182,7 @@ fetch(DOC_URL).then(r => { if (!r.ok) throw 0; return r.json(); }).then(g => {
 
 // ---------- campings municipaux (OpenStreetMap via Overpass, en direct) ----------
 const OQ = '[out:json][timeout:60];area["ISO3166-1"="NZ"][admin_level=2]->.nz;nwr["tourism"="camp_site"]["operator"~"[Cc]ouncil"](area.nz);out center tags;';
-fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(OQ), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } })
+fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(OQ))
   .then(r => { if (!r.ok) throw 0; return r.json(); })
   .then(j => {
     for (const e of j.elements || []) {
@@ -205,11 +203,71 @@ fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data='
   })
   .catch(() => { countEl.insertAdjacentHTML('afterend', '<p class="status">Campings municipaux (OSM) indisponibles pour le moment.</p>'); });
 
+// ---------- terres du DOC (polygones, chargés par zone visible) ----------
+const PCL_URL = 'https://services1.arcgis.com/3JjYDyG3oajxU6HO/ArcGIS/rest/services/DOC_Public_Conservation_Land/FeatureServer/0/query';
+const PCL_MINZOOM = 9;
+const pclRenderer = L.canvas({ padding: .3 });
+const pclGroup = L.layerGroup().addTo(map);
+const pclSeen = new Set();
+const pclStatus = document.getElementById('pclStatus');
+const pclStyle = t => t === 'Reserve'
+  ? { color: '#6d3f85', weight: .8, fillColor: '#8e5ea2', fillOpacity: .3 }
+  : { color: '#1f7469', weight: .8, fillColor: '#2a9d8f', fillOpacity: .3 };
+const TYPE_FR = { 'Conservation Area': 'Zone de conservation', 'National Park': 'Parc national', 'Reserve': 'Réserve', 'Marginal Strip': 'Bande riveraine (marginal strip)', 'Wildlife Area': 'Zone de faune sauvage' };
+let pclToken = 0, pclTimer = null;
+async function loadPcl() {
+  const show = document.getElementById('showPcl').checked;
+  if (!show) return;
+  if (map.getZoom() < PCL_MINZOOM) { pclStatus.textContent = 'Zoomez sur une région pour les afficher.'; return; }
+  const token = ++pclToken, b = map.getBounds();
+  const tol = 360 / (256 * Math.pow(2, map.getZoom())); // ~1 pixel en degrés
+  pclStatus.textContent = 'Chargement des terres du DOC…';
+  let offset = 0, more = true, added = 0;
+  try {
+    while (more && token === pclToken) {
+      const params = new URLSearchParams({
+        where: "Type <> 'Marine Area'", outFields: 'Name,Type,Section', returnGeometry: 'true',
+        geometry: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map(v => v.toFixed(4)).join(','),
+        geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects', outSR: '4326',
+        maxAllowableOffset: tol.toFixed(6), geometryPrecision: '5', resultOffset: offset, resultRecordCount: 1000, f: 'geojson'
+      });
+      const r = await fetch(PCL_URL + '?' + params);
+      if (!r.ok) throw 0;
+      const g = await r.json();
+      const feats = (g.features || []).filter(f => f.geometry && !pclSeen.has(f.id));
+      feats.forEach(f => pclSeen.add(f.id));
+      if (feats.length) {
+        L.geoJSON({ type: 'FeatureCollection', features: feats }, {
+          renderer: pclRenderer,
+          style: f => pclStyle(f.properties.Type),
+          onEachFeature: (f, l) => {
+            const p = f.properties, res = p.Type === 'Reserve';
+            l.bindPopup(`<div class="pop"><h3>${esc(p.Name || 'Terre du DOC')}</h3><div class="price" style="color:${res ? '#6d3f85' : '#1f7469'}">${res ? 'Freedom camping interdit, sauf site désigné' : 'Freedom camping permis, même non-SC, sauf panneau contraire'}</div>
+              <div class="meta">${esc(TYPE_FR[p.Type] || p.Type || '')}${p.Section ? ' · ' + esc(p.Section) : ''}</div>
+              <div class="small">Vérifiez toujours les panneaux sur place et la <a href="https://www.doc.govt.nz/parks-and-recreation/places-to-stay/freedom-camping/prohibited-conservation-areas" target="_blank" rel="noopener">liste des zones interdites du DOC</a>.</div></div>`, { maxWidth: 300 });
+          }
+        }).addTo(pclGroup);
+        added += feats.length;
+      }
+      more = !!(g.properties && g.properties.exceededTransferLimit) || (g.exceededTransferLimit === true);
+      offset += 1000;
+    }
+    if (token === pclToken) pclStatus.textContent = `${pclSeen.size} parcelles du DOC chargées.`;
+  } catch (e) {
+    console.warn('PCL', e);
+    if (token === pclToken) pclStatus.textContent = 'Terres du DOC indisponibles pour le moment.';
+  }
+}
+map.on('moveend', () => { clearTimeout(pclTimer); pclTimer = setTimeout(loadPcl, 350); });
+document.getElementById('showPcl').addEventListener('change', e => {
+  if (e.target.checked) { pclGroup.addTo(map); loadPcl(); } else map.removeLayer(pclGroup);
+});
+pclGroup.setZIndex && pclGroup.setZIndex(1);
+
 // ---------- ouvrir un lieu (recherche, liste proche) ----------
 function reveal(o) {
   if (!KIND[o.kind].on) { KIND[o.kind].on = true; kindsBox.querySelector(`[data-kind="${o.kind}"]`).checked = true; }
   if (o.price && !PRICE[o.price].on) { PRICE[o.price].on = true; pricesBox.querySelector(`[data-p="${o.price}"]`).setAttribute('aria-pressed', 'true'); }
-  if (o.kind === 'doc' && !o.car) carOnly.checked = false;
   if (!pointGroup.hasLayer(o.marker)) o.marker.addTo(pointGroup);
   refresh();
   closeSheet();
@@ -256,8 +314,8 @@ let me = null, meMarker = null, meCircle = null;
 const fmtKm = m => m < 1000 ? `${Math.round(m)} m` : `${(m / 1000).toFixed(m < 10000 ? 1 : 0)} km`;
 function renderNear() {
   if (!me) return;
-  const list = ITEMS.filter(o => o.kind !== 'ban' && visible(o)).map(o => ({ o, d: me.distanceTo(o.marker.getLatLng()) })).sort((a, b) => a.d - b.d).slice(0, 15);
-  near.innerHTML = `<h2 class="ch">Les plus proches de vous</h2><p class="small muted">Selon les filtres de prix et de type choisis. Distances à vol d’oiseau.</p>` +
+  const list = ITEMS.filter(o => o.kind !== 'ban' && visible(o)).map(o => ({ o, d: me.distanceTo(o.marker.getLatLng()) })).sort((a, b) => a.d - b.d).slice(0, 3);
+  near.innerHTML = `<h2 class="ch">Les 3 plus proches de vous</h2><p class="small muted">Selon les filtres de prix et de type choisis. Distances à vol d’oiseau.</p>` +
     (list.length ? `<ol>${list.map(({ o, d }) => `<li><button data-i="${ITEMS.indexOf(o)}">${dotFor(o)}<span>${esc(o.name)}<small>${esc(o.sub)}</small></span><span class="km">${fmtKm(d)}</span></button></li>`).join('')}</ol>` : '<p class="hint small">Aucun lieu avec ces filtres.</p>');
   near.hidden = false;
 }
@@ -291,4 +349,16 @@ map.on('popupopen', e => {
   const p = document.createElement('div'); p.className = 'dist'; p.textContent = `À ${fmtKm(me.distanceTo(e.popup.getLatLng()))} de vous (vol d’oiseau)`;
   el.querySelector('h3').after(p);
 });
+// ---------- application installable (PWA) ----------
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+let installEvt = null;
+const installBtn = document.getElementById('install');
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); installEvt = e; installBtn.hidden = false; });
+installBtn.addEventListener('click', async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; installBtn.hidden = true; });
+window.addEventListener('appinstalled', () => { installBtn.hidden = true; });
+const netEl = document.getElementById('offline');
+const net = () => { netEl.hidden = navigator.onLine; };
+window.addEventListener('online', net); window.addEventListener('offline', net); net();
 })();

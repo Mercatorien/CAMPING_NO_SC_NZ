@@ -2,11 +2,19 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>NZ en van non self-contained : où dormir</title>
 <meta name="description" content="Carte interactive des endroits où dormir en Nouvelle-Zélande avec un van non certifié self-contained : règles par district, sites gratuits, campings DOC et municipaux.">
-<link rel="stylesheet" href="leaflet.css?v=6">
-<link rel="stylesheet" href="style.css?v=6">
+<meta name="theme-color" content="#1e8a4c">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Van NZ">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="stylesheet" href="leaflet.css?v=7">
+<link rel="stylesheet" href="style.css?v=7">
 </head>
 <body>
 <div id="app">
@@ -30,8 +38,15 @@
         <h2 class="ch">Type de lieu</h2>
         <p class="small muted">La forme du symbole indique le type de lieu.</p>
         <div id="kinds"></div>
-        <label class="chk sub"><input type="checkbox" id="carOnly" checked autocomplete="off"> Campings DOC accessibles en voiture seulement</label>
         <p class="status" id="count"></p>
+      </section>
+
+      <section class="card">
+        <h2 class="ch">Terres du DOC</h2>
+        <label class="chk"><input type="checkbox" id="showPcl" checked autocomplete="off"> Afficher les terres de conservation</label>
+        <div class="legrow"><span class="sw" style="background:#2a9d8f"></span><span>Freedom camping permis, même non-SC, sauf panneau contraire</span></div>
+        <div class="legrow"><span class="sw" style="background:#8e5ea2"></span><span>Réserve : freedom camping interdit, sauf site désigné</span></div>
+        <p class="status" id="pclStatus">Zoomez sur une région pour les afficher.</p>
       </section>
 
       <section class="card">
@@ -72,6 +87,7 @@
     </div>
   </aside>
   <main id="map" aria-label="Carte de Nouvelle-Zélande"></main>
+  <div id="offline" class="offline" hidden>Hors ligne : affichage des données déjà chargées</div>
   <div id="searchbox">
     <label class="vh" for="q">Rechercher un site</label>
     <input id="q" type="search" placeholder="Rechercher un site, un camping…" autocomplete="off" enterkeyhint="search">
@@ -81,12 +97,13 @@
     <button id="locate" class="fab" aria-label="Me localiser et voir les sites proches" title="Me localiser">
       <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4" fill="currentColor"/><circle cx="12" cy="12" r="8" fill="none" stroke="currentColor" stroke-width="2"/><path d="M12 1v4M12 19v4M1 12h4M19 12h4" stroke="currentColor" stroke-width="2"/></svg>
     </button>
+    <button id="install" class="fab fab-pill" hidden>Installer l’app</button>
     <button id="openSheet" class="fab fab-wide" aria-controls="side" aria-expanded="false">Filtres et infos</button>
   </div>
 </div>
-<script src="leaflet.js?v=6"></script>
-<script src="ta.js?v=6"></script>
-<script src="data.js?v=6"></script>
-<script src="app.js?v=6"></script>
+<script src="leaflet.js?v=7"></script>
+<script src="ta.js?v=7"></script>
+<script src="data.js?v=7"></script>
+<script src="app.js?v=7"></script>
 </body>
 </html>
