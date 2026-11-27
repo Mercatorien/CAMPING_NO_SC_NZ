@@ -52,7 +52,7 @@ BASES['Satellite + noms'] = L.layerGroup([
 (LOCAL ? BASES['Plan Esri'] : BASES['Plan OpenStreetMap']).addTo(map);
 L.control.layers(BASES, null, { position: isMobile() ? 'bottomleft' : 'topright', collapsed: isMobile() }).addTo(map);
 
-const distGroup = L.layerGroup().addTo(map);
+const distGroup = L.layerGroup(); // masqué par défaut (case « Afficher les zones »)
 const pointGroup = L.layerGroup().addTo(map);
 const info = document.getElementById('info');
 const countEl = document.getElementById('count');
@@ -72,7 +72,7 @@ kindsBox.addEventListener('change', e => { const k = e.target.dataset.kind; if (
 document.getElementById('showDist').addEventListener('change', e => e.target.checked ? distGroup.addTo(map) : map.removeLayer(distGroup));
 window.addEventListener('pageshow', () => { // certains navigateurs restaurent d'anciens états de cases
   for (const cb of kindsBox.querySelectorAll('input')) cb.checked = KIND[cb.dataset.kind].on;
-  document.getElementById('showDist').checked = true; document.getElementById('showPcl').checked = true; distGroup.addTo(map);
+  document.getElementById('showDist').checked = false; document.getElementById('showPcl').checked = true; map.removeLayer(distGroup);
 });
 
 // ---------- registre des points ----------
@@ -226,7 +226,7 @@ async function loadPcl() {
   try {
     while (more && token === pclToken) {
       const params = new URLSearchParams({
-        where: "Type <> 'Marine Area'", outFields: 'Name,Type,Section', returnGeometry: 'true',
+        where: "Type <> 'Marine Area'", outFields: 'OBJECTID,Name,Type,Section', returnGeometry: 'true',
         geometry: [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map(v => v.toFixed(4)).join(','),
         geometryType: 'esriGeometryEnvelope', inSR: '4326', spatialRel: 'esriSpatialRelIntersects', outSR: '4326',
         maxAllowableOffset: tol.toFixed(6), geometryPrecision: '5', resultOffset: offset, resultRecordCount: 1000, f: 'geojson'
@@ -234,8 +234,9 @@ async function loadPcl() {
       const r = await fetch(PCL_URL + '?' + params);
       if (!r.ok) throw 0;
       const g = await r.json();
-      const feats = (g.features || []).filter(f => f.geometry && !pclSeen.has(f.id));
-      feats.forEach(f => pclSeen.add(f.id));
+      const fid = f => f.id ?? f.properties?.OBJECTID ?? null;
+      const feats = (g.features || []).filter(f => f.geometry && fid(f) !== null && !pclSeen.has(fid(f)));
+      feats.forEach(f => pclSeen.add(fid(f)));
       if (feats.length) {
         L.geoJSON({ type: 'FeatureCollection', features: feats }, {
           renderer: pclRenderer,

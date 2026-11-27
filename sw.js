@@ -1,7 +1,7 @@
 // Service worker : appli utilisable hors ligne (données et tuiles déjà consultées).
-const VERSION = 'v7';
+const VERSION = 'v9';
 const SHELL = `shell-${VERSION}`, DATA = 'data-v1', TILES = 'tiles-v1';
-const SHELL_FILES = ['./', 'index.html', 'style.css?v=7', 'app.js?v=7', 'data.js?v=7', 'ta.js?v=7', 'leaflet.js?v=7', 'leaflet.css?v=7',
+const SHELL_FILES = ['./', 'index.html', 'style.css?v=7', 'app.js?v=9', 'data.js?v=7', 'ta.js?v=7', 'leaflet.js?v=7', 'leaflet.css?v=7',
   'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-180.png'];
 const MAX_TILES = 4000;
 
